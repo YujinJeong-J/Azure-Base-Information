@@ -1330,7 +1330,7 @@ A 고객사는 Azure에 시스템을 구성하고자 한다. 고객의 보안 �
 
 **문항 17)** A사는 Azure를 사용하고 있으며 아래와 같이 Application과 Database를 별도의 Virtual Network로 Peering을 통해 운영하고 있다. 같은 Database를 사용하는 신규 서비스 추가가 필요하여 아래와 같이 Standard Load Balancer와 Subnet을 생성했다. Database에 Application VM만 접근 가능하도록 Database Network Security Group의 Inbound Rule을 조정해야 한다. Database는 서비스 포트로 3306을 사용하고 있다.
 Service1, Service2, Database의 각 VM들은 ASG-Service1, ASG-Service2, ASG-Database 라는 이름의 Application Security Group으로 구성되어 있다. 다음 중 Service1, Service2의 VM들이 Database에 접근하기 위한 Rule로 최소한의 권한 법칙에 가장 충족한 것을 고르시오. [4점]
-
+![](img/q17.png)
 ① Source: `10.0.2.0/24, 10.0.3.0/24` → Destination: `10.1.0.0/16` / Port 3306 / Allow
 ② Source: `ASG-Service1, ASG-Service2` → Destination: `10.1.2.0/24` / Port 3306 / Allow
 ③ Source: `10.0.2.0/24, 10.0.3.0/24` → Destination: `ASG-Database` / Port 3306 / Allow
@@ -1373,7 +1373,7 @@ Service1, Service2, Database의 각 VM들은 ASG-Service1, ASG-Service2, ASG-Dat
 ---
 
 문항18) A책임은 프로젝트에서 AKS 기반환경에서 MSA 프로젝트를 진행중이다. 구축되는 시스템의 보안요건을 만족시키기 위해서 데이터 전송 및 저장 시 암호화를 적용하여야 한다. 이를 위해서 다음과 같이 아키텍처 설계서를 작성하였다. 이를 구현하기 위한 방안 중 잘못된 것을 고르시오. [4점]
-![](img/문항18.png)
+![](img/q18.png)
 ① WAF\_v2 SKU에서 TLS 프로토콜 수신기를 REST API, PowerShell 및 포털에서 생성하여 상호 인증 구성이 가능하다.
 ② Azure Firewall을 Premium SKU로 생성하여 구성이 가능하다.
 ③ 응용 어플리케이션은 Always Encrypted를 지원하는 드라이버로 변경하여 Always Encrypted와 Dynamic data masking을 동시에 사용할 수 있다.
@@ -1518,4 +1518,156 @@ B 책임은 AKS를 이용하여 시스템 구축을 계획하고 있다. AKS 보
 
 ---
 
+문항20)
+A사는 AWS 환경을 **DirectConnect**로 On-Prem과 연결해 사용 중이다. 전략에 따라 신규 시스템은 Azure로 구성하고, 기존 AWS 시스템도 Azure로 이관 예정이다. 이 때 시스템 담당자가 고려해야 할 사항으로 **올바르지 않은 것**을 고르시오. \[4점]
 
+① AWS에서는 RDS(MariaDB)를 사용했지만, Azure Database for MariaDB는 제공 종료 예정이므로 **Azure Database for MySQL**로 DB를 구성해 이관한다.
+② VM은 Amazon Linux를 사용 중인데 Azure에서 공식 지원하지 않으므로, Azure 지원 Linux OS로 변경하고 소스/데이터를 이관해 테스트한다.
+③ 이미 오픈된 시스템은 레거시 연계 때문에 내부 IP 변경이 어려워 Azure에 동일 내부 IP를 부여하고, 오픈 전까지는 On-Prem에서 ExpressRoute BGP 라우팅을 차단해 통신을 막는다.
+④ Public DNS 마이그레이션 시, 전파 지연 영향을 줄이기 위해 미리 TTL을 줄여둔다.
+⑤ 외부 웹서버 SSL 인증서는 MS가 CA(Certificate Authority) 공급자이므로 Azure Key Vault에서 신규 인증서를 생성해 적용한다.
+## 정답
+
+👉 **⑤ Azure Key Vault에서 SSL 인증서를 직접 생성할 수 있다** (잘못된 설명)
+## 해설
+
+### ✅ 정답이 맞는 이유
+
+* **Azure Key Vault**는 **CA 역할을 하지 않음**.
+* Key Vault는 SSL/TLS 인증서를 **보관·관리**할 수 있지만, 공인 인증서를 직접 발급하지는 못함.
+* 공인 SSL 인증서는 **Digicert, Sectigo, GlobalSign 등 외부 CA**를 통해 발급받아야 함.
+* Key Vault는 발급받은 인증서를 가져와 **저장/배포/갱신 자동화**에 활용하는 용도임.
+### ❌ 다른 보기가 옳은 이유
+
+① **RDS(MariaDB → Azure Database for MySQL)**
+
+* Azure Database for MariaDB는 **2025년 9월 서비스 종료 예정**.
+* 따라서 이관 시 Azure Database for MySQL로 마이그레이션하는 것이 맞음.
+
+② **Amazon Linux 미지원**
+
+* Azure는 **Amazon Linux 이미지 제공 X**.
+* CentOS, Ubuntu, RHEL 등 Azure 공식 이미지 사용 후 소스/데이터 이관 필요.
+
+③ **IP 동일성 확보 & BGP 라우팅 제어**
+
+* 기존 레거시와 연계가 필요하지만 오픈 전 충돌 방지를 위해 ExpressRoute BGP 라우팅 차단 후 오픈 시점에 반영 → 올바른 방법.
+
+④ **DNS TTL 조정**
+
+* DNS 전환 시 **TTL(Time To Live) 값 축소**로 레코드 전파 지연 최소화 → 올바른 방법.
+## 핵심 요점
+
+* **Azure Key Vault는 CA 아님** → 인증서 발급이 아니라 **저장·관리·자동화**만 가능.
+* CSP 간 마이그레이션 시 고려사항
+
+  * DB 서비스 지원 여부 (MariaDB 종료 → MySQL 이관)
+  * OS 호환성 (Amazon Linux → Azure 지원 OS)
+  * 네트워크(IP, BGP 라우팅 제어)
+  * DNS 전파 (TTL 조정)
+## 📘 추가 학습 가이드
+
+* [Azure Database for MariaDB retirement](https://learn.microsoft.com/azure/mariadb/overview)
+* [Azure Database for MySQL](https://learn.microsoft.com/azure/mysql/)
+* [Azure Key Vault Certificates](https://learn.microsoft.com/azure/key-vault/certificates/about-certificates)
+* [DNS TTL 모범 사례](https://learn.microsoft.com/azure/dns/dns-getstarted-portal#reduce-dns-ttl-to-avoid-downtime)
+👉 출제 의도: **CSP 간(AWS→Azure) 마이그레이션 시 서비스 종료, 호환성, 네트워크, DNS, 인증서 관리 등 고려사항**을 제대로 알고 있는지 확인하는 문제입니다.
+
+# 📊 AWS → Azure 마이그레이션 체크리스트
+
+| 영역              | AWS 현황                                | Azure 전환 시 고려사항                                                                 | 비고                       |
+| --------------- | ------------------------------------- | ------------------------------------------------------------------------------- | ------------------------ |
+| **Database**    | **RDS (MariaDB)**                     | **Azure Database for MariaDB** 서비스 종료 예정 → **Azure Database for MySQL**로 마이그레이션 | 스키마/데이터 호환성 점검 필요        |
+| **VM OS**       | **Amazon Linux**                      | Azure에서 **공식 미지원** → Ubuntu, RHEL, CentOS 등 Azure 지원 OS 선택 후 **소스/데이터 재배포**     | 애플리케이션 호환성 테스트 필요        |
+| **네트워크(IP 연계)** | DirectConnect + On-Prem BGP 라우팅       | **ExpressRoute** + 동일 내부 IP 할당 가능. 오픈 전까지는 **BGP 전파 차단**, 오픈 시점에 반영             | IP 충돌 방지 및 점진적 전환 전략     |
+| **DNS**         | Route 53 사용                           | Azure DNS 또는 기존 DNS 유지 가능. **전파 지연 최소화를 위해 TTL 값 사전 축소**                        | 무중단 전환을 위한 필수 단계         |
+| **SSL 인증서**     | ACM(AWS Certificate Manager) 또는 외부 CA | **Azure Key Vault는 CA가 아님**. 공인 인증서는 외부 CA 발급 → Key Vault에 가져와 **저장/관리/자동 갱신**  | 인증서 발급 vs 관리 역할 구분 필수    |
+| **전용선 연결**      | AWS DirectConnect                     | Azure ExpressRoute (필요시 VPN 게이트웨이 병행)                                           | 전용선 + 암호화(하이브리드 구성) 고려   |
+| **보안 관리**       | IAM + Security Group                  | Azure AD RBAC, NSG + Azure Firewall                                             | 권한/정책을 최소 권한 원칙으로 재설계 필요 |
+| **운영/모니터링**     | CloudWatch                            | Azure Monitor + Log Analytics + Defender for Cloud                              | 운영 툴체인 변경 대응 필요          |
+
+---
+
+문항21) B사에 운영중인 시스템에 고객사의 요청에 의해 설정 추가 및 변경작업을 진행하려 한다. 아래표에서 각 요청에 따른 예상되는 이슈에 대해서 정리한 내용 중 기술적으로 적절하지 않은 것을 고르시오. [4점]
+![](img/q21.png)
+## 정답
+
+👉 **③ 특정 VM 디스크 증설 이슈 설명**이 잘못됨
+## 해설
+
+### ✅ 정답이 맞는 이유
+
+* Azure VM에 디스크 추가 시 **OS 디스크 유형과 반드시 동일할 필요 없음**.
+* 예: OS 디스크가 **Premium SSD**여도, 데이터 디스크는 **Standard SSD/HDD** 추가 가능.
+* 즉, 표에서 제시된 "OS 디스크와 동일한 유형만 가능하다"는 설명은 **잘못된 기술적 설명**.
+### ❌ 다른 보기들은 적절한 설명
+
+① **NSG Deny All Rule 추가**
+
+* Load Balancer Probe 트래픽이 차단되면 VM이 비정상으로 표시됨 → 부하분산 불가. (올바른 설명)
+
+② **백업 복제 유형 변경**
+
+* Geo-Redundant ↔ Locally-Redundant는 정책 생성 시 지정, **생성 후 변경 불가**. (올바른 설명)
+
+④ **스토리지 계정 네트워크 제한**
+
+* VM 진단 스토리지 계정이 차단되면 부팅 로그 접근 불가 → 문제 발생. (올바른 설명)
+
+⑤ **Private AKS Cluster 중단/재시작**
+
+* Private Endpoint 링크 재생성 필요. 재시작 시 연결 끊김 이슈 발생. (올바른 설명)
+## 핵심 요점
+
+* Azure VM 데이터 디스크는 **OS 디스크와 다른 유형도 가능**.
+* **NSG/Deny All, Backup 복제 유형, Storage 네트워크 제한, Private Endpoint 이슈**는 실제 발생 가능.
+* 따라서 \*\*디스크 증설 관련 설명(③)\*\*만 기술적으로 부적절.
+## 📘 추가 학습 가이드
+
+* [Azure VM Managed Disk 유형](https://learn.microsoft.com/azure/virtual-machines/disks-types)
+* [Azure NSG 동작 원리](https://learn.microsoft.com/azure/virtual-network/network-security-groups-overview)
+* [Azure Backup 저장소 중복성](https://learn.microsoft.com/azure/backup/backup-overview#storage-redundancy)
+* [Azure Private Endpoint](https://learn.microsoft.com/azure/private-link/private-endpoint-overview)
+
+---
+
+**문항22)**
+Azure 전용선 서비스인 **ExpressRoute**는 2회선의 물리 전용선을 사용하여 하나의 ExpressRoute Location 내 이중화를 제공하였다. 그러나 ExpressRoute Location 자체에 장애가 발생하면 서비스를 사용할 수 없는 단점이 있었다. 이를 보완하기 위해 Microsoft는 신규 서비스를 제공 예정 중이다. **동일한 2회선의 물리 전용선을 사용하여 ExpressRoute Location의 가용성을 제공할 수 있는 서비스명**을 작성하시오. \[3점]
+
+**정답) \_\_\_\_\_\_\_\_\_\_\_**
+
+## 정답
+
+👉 **ExpressRoute Metro (또는 Metro)**
+## 해설
+
+* 기존 **ExpressRoute**는 한 Location 내 2회선 이중화를 제공했지만, **Location 장애** 시 서비스 전체에 영향 발생.
+* 이를 보완한 것이 **ExpressRoute Metro**:
+
+  * 동일 리전 내 **2개의 서로 다른 ExpressRoute Location**에 각 회선을 연결.
+  * 가용성이 **Availability Zone**과 유사하게 향상됨.
+  * Location 단위 장애에도 회선별로 다른 Location을 통해 지속적인 연결 보장.
+## 핵심 요점
+
+* **ExpressRoute**: 단일 Location 내 2회선 이중화 (Location 장애 시 한계 존재).
+* **ExpressRoute Metro**: 동일 리전 내 서로 다른 Location을 활용해 **Location 수준의 고가용성** 제공.
+* 고객 On-Prem 장비 ↔ 두 Location 병렬 연결 → 단일 Location 장애에도 지속 서비스 가능.
+## 📘 추가 학습 가이드
+
+* [ExpressRoute Metro 개요 (Microsoft 공식 문서)](https://learn.microsoft.com/azure/expressroute/expressroute-metro)
+* [ExpressRoute 개요](https://learn.microsoft.com/azure/expressroute/expressroute-introduction)
+👉 이 문제의 출제 의도는 \*\*“ExpressRoute Metro 서비스의 필요성과 차이점 이해”\*\*를 확인하는 것입니다.
+
+# 📊 ExpressRoute vs ExpressRoute Metro 비교
+
+| 구분           | **ExpressRoute**                             | **ExpressRoute Metro**                              |
+| ------------ | -------------------------------------------- | --------------------------------------------------- |
+| **이중화 구조**   | 하나의 **ExpressRoute Location** 내 2회선 물리 회선 제공 | 동일 리전 내 **2개의 다른 ExpressRoute Location**에 각각 1회선 연결 |
+| **장애 대응 범위** | Location 장애 발생 시 서비스 전체 중단 가능                | Location 장애 발생 시에도 다른 Location을 통해 연결 유지            |
+| **가용성 수준**   | Location 내부 이중화 수준                           | **Location 단위 고가용성** (Availability Zone 개념과 유사)     |
+| **구성 방식**    | 고객 On-Prem 라우터 ↔ 단일 Location ↔ Azure         | 고객 On-Prem 라우터 ↔ **두 Location 병렬 연결** ↔ Azure       |
+| **적용 리전**    | 대부분 리전에서 지원                                  | 일부 리전에서 단계적 제공 (대도시 Metro 단위로 확장)                   |
+| **주요 장점**    | 단일 Location에서 간단한 회선 이중화 제공                  | Location 장애에도 지속적인 서비스 보장, 미션 크리티컬 환경 적합            |
+| **주요 단점**    | Location 자체 장애에는 무력                          | 비용/구성 복잡도 증가 가능                                     |
+
+---
