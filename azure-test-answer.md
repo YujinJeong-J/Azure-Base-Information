@@ -920,3 +920,452 @@ spec:
 
 ---
 
+문항 12) 아래 제시된 AzureRM Resource Provider 를 사용하여 구성한 AKS Terraform 코드에 대해서 설명한 내용 중 잘못 설명한 것을 고르시오. \[4 점]
+\[Terraform tfvars 파일]
+
+```
+AKSCluster = {
+  … 중략 …
+  default_node_pool = {
+    name                   = "np-default"
+    vm_size                = "Standard_D2_v2"
+    zones                  = [1]
+    enable_auto_scaling    = true
+    max_count              = 5
+    min_count              = 2
+    node_count             = 2
+    kubelet_disk_type      = "OS"
+    orchestrator_version   = "1.31.7"
+    os_sku                 = "Ubuntu"
+    node_subnet_name       = "sbn-aks"
+    type                   = "VirtualMachineScaleSets"
+  }
+  … 중략 …
+  kubernetes_version       = "1.31.7"
+  network_profile = {
+    network_plugin = "azure"
+    network_mode   = "transparent"
+    network_policy = "calico"
+    service_cidrs  = ["10.1.0.0/24"]
+    dns_service_ip = "10.1.0.20"
+  }
+  … 중략 …
+}
+```
+
+보기
+① default\_node\_pool 은 추가적인 Pod Scheduling 요청이 발생하더라도, 최대 5 개의 Node 까지만 Scale-out 이 가능하다.
+② 해당 AKS Cluster 의 kubernetes version 은 이미 수명 종료가 되어 상위 버전으로 업데이트가 필요하다.
+③ 해당 default\_node\_pool 은 단일 Zone 으로 구성되어 있어 해당 Zone 장애발생 시 해당 Cluster 상에서 구동되는 Application 은 서비스 불가 상태에 빠질 수 있다.
+④ 해당 AKS Cluster 에는 OS 가 Ubuntu 인 Container 이미지만 배포가 가능하다.
+⑤ AKS Cluster 는 Pod 간 네트워크 통신을 제어할 수 있는 Network Policy 로 calico 를 사용한다.
+
+# 정답
+
+④
+
+# 해설(왜 ④가 정답인가)
+
+* `os_sku = "Ubuntu"` 는 **노드 풀의 운영체제 이미지**(에이전트 노드 OS)를 지정하는 옵션입니다. 이는 “해당 노드에 배포되는 컨테이너의 베이스 이미지 OS 제한”과는 무관합니다. Linux 노드(예: Ubuntu, Azure Linux/Mariner)에서는 **Ubuntu·Debian·Alpine 등 다양한 리눅스 기반 컨테이너 이미지**를 구동할 수 있습니다. 따라서 “Ubuntu인 컨테이너 이미지만 배포 가능”이라는 ④의 서술은 잘못입니다. (os\_sku 가능한 값 참고: Ubuntu, AzureLinux/Mariner, Windows2019, Windows2022 등) ([GitHub][1], [Microsoft Learn][2])
+
+# 다른 보기 해설(왜 오답이 아닌가)
+
+① **맞는 설명**: 자동 스케일링이 활성화(`enable_auto_scaling = true`)이고 `max_count = 5`로 설정되어 있으므로, 해당 노드 풀은 **최대 5노드**까지만 스케일아웃합니다. (Terraform AKS 노드 풀 속성 정의) ([Terraform Registry][3])
+
+② **취지는 타당(업그레이드 필요성)**: 현재 날짜(2025-08-26, KST) 기준으로 AKS의 Kubernetes 1.31은 **EOL 예정일이 2025-11-21**로 아직 “완전 종료”는 아니지만, 곧 지원 종료가 다가오므로 **상위 버전으로 업그레이드 계획 수립이 필요**합니다. (AKS 지원 버전 표) ([Microsoft Learn][4])
+→ 엄밀히 말해 “이미 수명 종료”라는 표현은 시점상 과장입니다. 다만 시험 의도(운영 안정성/수명주기 관리 관점에서 업그레이드 필요성 판단)로 보면 업데이트 권고 자체는 적절합니다.
+
+③ **맞는 설명**: `zones = [1]`로 **단일 가용영역(ZA)** 배치입니다. 특정 존 장애가 나면 해당 존의 노드가 내려가며, 워크로드가 **다른 존에 분산되어 있지 않다면 서비스 중단 위험**이 있습니다. 존 분산(예: `[1,2,3]`)이 권장됩니다. ([Microsoft Learn][5])
+
+⑤ **맞는 설명**: `network_policy = "calico"` 설정은 **Calico 네트워크 폴리시 엔진**을 사용해 Pod 간 트래픽을 제어하겠다는 의미이며, AKS에서 공식적으로 지원됩니다. ([Microsoft Learn][6], [docs.tigera.io][7])
+
+# 이 문제로 익혀야 할 핵심 요점
+
+* `os_sku`는 **노드 OS 이미지** 지정(컨테이너 이미지 OS 제한 아님). Linux 노드면 다양한 Linux 컨테이너 가능. ([GitHub][1])
+* AKS **버전 수명주기**를 주기적으로 확인하고 EOL 전에 업그레이드 계획을 수립. (1.31 EOL 예정: 2025-11-21) ([Microsoft Learn][4])
+* **오토스케일러 한계**는 `min_count/max_count`로 제한됨. 설계 시 적정 임계값과 IP/서브넷 용량 고려. ([Terraform Registry][3])
+* **가용영역 분산**은 존 장애 대비의 핵심. 단일 존 구성은 장애 리스크 큼. ([Microsoft Learn][5])
+* AKS는 **Calico/Azure 네트워크 폴리시**로 Pod-to-Pod 트래픽을 제어 가능. 폴리시로 제로 트러스트 세분화. ([Microsoft Learn][6])
+
+# 추가 학습 가이드(공식 문서)
+
+* AKS 지원 Kubernetes 버전(EOL 일정 포함): ([Microsoft Learn][4])
+* AKS 네트워크 폴리시(Calico 사용): ([Microsoft Learn][6])
+* AKS 가용영역 구성/권장사항: ([Microsoft Learn][5])
+* AKS 노드 OS 업그레이드 개요: ([Microsoft Learn][2])
+* Terraform `azurerm_kubernetes_cluster`/노드 풀 속성(autoscaling, os\_sku 등): ([Terraform Registry][8])
+* Calico on AKS 개요(공식 Calico 문서): ([docs.tigera.io][7])
+### 자체 검토 메모
+
+* 정답은 ④로 제시(문제 의도: IaC/AKS 설계 이해 확인).
+* ②는 “이미 EOL” 표현이 시점상 부정확함을 명시하고, EOL 임박으로 업그레이드 필요성을 강조하도록 정리.
+* 모든 근거는 공식 문서로 인용.
+
+[1]: https://github.com/Azure/terraform-azurerm-aks?utm_source=chatgpt.com "Azure/terraform-azurerm-aks"
+[2]: https://learn.microsoft.com/en-us/azure/aks/upgrade-os-version?utm_source=chatgpt.com "Upgrade operating system (OS) versions in AKS"
+[3]: https://registry.terraform.io/providers/hashicorp/azurerm/latest/docs/resources/kubernetes_cluster_node_pool?utm_source=chatgpt.com "azurerm_kubernetes_cluster_no..."
+[4]: https://learn.microsoft.com/en-us/azure/aks/supported-kubernetes-versions?utm_source=chatgpt.com "Supported Kubernetes versions in Azure Kubernetes Service (AKS)."
+[5]: https://learn.microsoft.com/en-us/azure/aks/reliability-availability-zones-configure?utm_source=chatgpt.com "Configure availability zones in Azure Kubernetes Service ..."
+[6]: https://learn.microsoft.com/en-us/azure/aks/use-network-policies?utm_source=chatgpt.com "Secure traffic between pods by using network policies in AKS"
+[7]: https://docs.tigera.io/calico/latest/getting-started/kubernetes/managed-public-cloud/aks?utm_source=chatgpt.com "Installing on AKS - Calico Documentation"
+[8]: https://registry.terraform.io/providers/hashicorp/azurerm/latest/docs/resources/kubernetes_cluster?utm_source=chatgpt.com "azurerm_kubernetes_cluster | Resources | hashicorp/azurerm"
+
+---
+문항13)
+한 개의 Node Pool로 구성된 AKS 클러스터를 업그레이드하려고 한다. 업그레이드 시 **서비스 영향도 최소화(무중단)** 조건을 충족해야 한다.
+제시된 작업 순서 중 올바른 절차를 고르시오.
+
+**\[작업 순서]**
+
+1. 컨트롤 플레인을 업그레이드한다.
+2. 임시 NodePool(Name: newagentpool)을 클러스터에 신규로 추가한다.
+3. (        )
+4. (        )
+5. (        )
+6. 기존 NodePool(Name: agentpool)을 업그레이드한다.
+7. (        )
+8. (        )
+9. (        )
+10. 기존 NodePool(Name: agentpool)로 모든 Pod가 이동되었고, 서비스가 정상적인지 확인한다.
+11. 임시 NodePool(Name: newagentpool)을 삭제한다.
+
+**\[보기]**
+
+* 가. 기존 NodePool(Name: agentpool)의 Node AutoScaling 을 활성화한다.
+* 나. 기존 NodePool(Name: agentpool)의 Node AutoScaling 을 비활성화 한다.
+* 다. 기존 NodePool(Name: agentpool)에 Pod 스케쥴링을 활성화한다.
+* 라. 기존 NodePool(Name: agentpool)에 Pod 스케쥴링을 비활성화 하고 Drain 작업을 수행한다.
+* 마. 임시 NodePool(Name: newagentpool)에 Pod 스케쥴링을 비활성화 하고 Drain 작업을 수행한다.
+* 바. 임시 NodePool(Name: newagentpool)로 모든 Pod가 이동되었고, 서비스가 정상적인지 확인한다.
+## 정답
+
+👉 **나라바가다마**
+## 해설
+
+1. **컨트롤 플레인 업그레이드** → 클러스터 관리면을 최신 버전으로 먼저 올려야 이후 노드 풀 업그레이드가 호환 가능.
+2. **임시 NodePool 추가(newagentpool)** → 기존 NodePool을 바로 업그레이드하지 않고 안전하게 Pod를 옮길 수 있는 임시 풀 확보.
+3. **나. 기존 NodePool AutoScaling 비활성화** → Drain 및 Pod 이동 시 예기치 않게 스케일 아웃/인 발생 방지.
+4. **라. 기존 NodePool 스케줄링 비활성화 + Drain** → 기존 Pod들을 안전하게 임시 NodePool로 이동.
+5. **바. Pod가 newagentpool로 이동, 서비스 정상 확인** → 서비스 무중단 여부 검증.
+6. **기존 NodePool 업그레이드** → 안전하게 노드 이미지/버전 업그레이드.
+7. **가. 기존 NodePool AutoScaling 활성화** → 업그레이드된 agentpool에 자동 확장 기능 복구.
+8. **다. 기존 NodePool 스케줄링 활성화** → 신규 트래픽이 agentpool에 정상적으로 유입되도록 설정.
+9. **마. newagentpool 스케줄링 비활성화 + Drain** → Pod를 다시 agentpool로 회수.
+10. **Pod 정상 이동 및 서비스 확인** → 업그레이드 성공 검증.
+11. **임시 NodePool 삭제** → 불필요한 자원 정리.
+## 핵심 요점
+
+* AKS NodePool 업그레이드는 **Blue-Green 방식**으로 접근해야 무중단 보장.
+* **기존 NodePool → Drain → 임시 NodePool → 업그레이드 → 복귀** 절차가 표준.
+* AutoScaling은 Drain 전 반드시 비활성화 → 업그레이드 후 재활성화.
+* NodePool 이름(agentpool) 유지 조건 충족 위해 임시 NodePool(newagentpool)을 활용.
+## 추가 학습 가이드
+
+📘 **Microsoft Learn 공식 문서**
+
+* [AKS 노드 업그레이드](https://learn.microsoft.com/ko-kr/azure/aks/upgrade-cluster)
+* [AKS 노드 풀 관리](https://learn.microsoft.com/ko-kr/azure/aks/use-multiple-node-pools)
+* [kubectl drain 명령어](https://kubernetes.io/docs/reference/generated/kubectl/kubectl-commands#drain)
+👉 이 문제의 출제 의도는 \*\*“AKS NodePool 업그레이드 절차(무중단 서비스)”\*\*를 올바르게 이해하고 있는지를 확인하는 것입니다.
+
+---
+**문항 14)**
+GitHub Actions로 아래 파이프라인을 구성한다. *Build → Package → Deploy → DeployCheck* 단계 중, **Job 간 산출물 공유**를 위해 빈칸에 들어갈 코드를 작성하라.
+
+**\[답안 입력 위치]**
+
+```
+- uses: (답안)________________
+```
+
+**\[조건/설명 요약]**
+
+* Build: Gradle로 JAR 생성 → **upload-artifact**로 업로드
+* Package: Build 산출물(JAR)을 내려받아 Docker Build/Push → **ACR** 푸시
+* Deploy: Helm으로 AKS 배포
+* DeployCheck: 배포 정상 여부 확인
+
+**\[발췌 코드]**
+[dockerfile]
+```Dockerfile
+FROM openjdk:8-jdk
+COPY artifact/app.jar /sorc001/app.jar
+RUN chmod +x /sorc001/app.jar
+EXPOSE 8080
+CMD ["./docker-entrypoint.sh"]
+```
+
+[pipeline 코드]
+```Pipeline 코드
+env:
+  BASE_URL: tct.azurecr.io
+  CLUSTER_NAME: tct-cluster
+
+jobs:
+  Build:
+    runs-on: ubuntu-latest
+    container:
+    steps:
+      - uses: actions/checkout@v3
+      - run: chmod +x gradlew
+      - run: ./gradlew build
+      - uses: actions/upload-artifact@v3
+        with:
+          name: build-artifact
+          path: |
+            build/libs
+          retention-days: 1
+
+  Package:
+    if: ${{ github.ref == 'refs/heads/main' }}
+    needs: [ build ]
+    runs-on: ubuntu-latest
+    env:
+      IMAGE_NAME: tct/app
+      DOCKER_FILE_NAME: ./docker/Dockerfile
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/download-artifact@v3   # (답안)
+        with:
+          name: build-artifact
+          path: artifact
+      - name: Build Container
+        run: docker build . -t ${{ env.BASE_URL }}/${{ env.IMAGE_NAME }}:${GITHUB_SHA} -f ${{ env.DOCKER_FILE_NAME }}
+      - name: Tag Container
+        run: docker tag ${{ env.BASE_URL }}/${{ env.IMAGE_NAME }}:${GITHUB_SHA}
+      - name: Push Container Image to ACR
+        run: |
+          docker push ${{ env.BASE_URL }}/${{ env.IMAGE_NAME }}:${GITHUB_SHA}
+
+  Deploy:
+    # … 생략 …
+
+  DeployCheck:
+    # … 생략 …
+```
+## 정답
+
+👉 **`actions/download-artifact@v3`**
+## 해설
+
+* GitHub Actions에서 **Job 간 파일은 자동 공유되지 않음**.
+* 먼저 Build Job에서 `actions/upload-artifact@v3`로 산출물을 업로드했고, **Package Job에서 이를 내려받아야** Docker 빌드시 `artifact/app.jar`를 사용할 수 있음.
+* 따라서 빈칸에는 **`actions/download-artifact@v3`** 가 들어가야 일관된 아티팩트 전달이 된다.
+
+> 참고: `with.name: build-artifact`는 업로드 시 지정한 아티팩트 이름과 반드시 일치해야 하며, `with.path: artifact`는 내려받을 로컬 경로다.
+## 핵심 요점
+
+* **Job 간 데이터 전달 = 업로드/다운로드 아티팩트 패턴**
+
+  * 업로드: `actions/upload-artifact@v3`
+  * 다운로드: `actions/download-artifact@v3`
+* `needs:` 로 Job 실행 순서를 보장하고, 아티팩트로 산출물을 넘긴다.
+* 멀티스테이지 CI/CD에서 **아티팩트 관리**는 재현성·분리된 실행환경에서 핵심.
+## 추가 학습 가이드
+
+* GitHub Actions Artifacts 사용법: *Upload/Download Artifacts*
+
+  * [https://github.com/actions/upload-artifact](https://github.com/actions/upload-artifact)
+  * [https://github.com/actions/download-artifact](https://github.com/actions/download-artifact)
+* GitHub Actions 기본 개념(워크플로, 잡, 스텝, 컨텍스트)
+
+  * [https://docs.github.com/actions/learn-github-actions/understanding-github-actions](https://docs.github.com/actions/learn-github-actions/understanding-github-actions)
+
+---
+문항 15)
+다음과 같은 상황에서 발생할 수 있는 보안 이슈를 방지할 수 있는 방안을 설명한 보기 중 **적절하지 않는 것**을 고르시오. \[4 점]
+
+<상황>
+
+* A 프로젝트는 Git 기반으로 소스 형상 관리를 하고 있음
+* 소스 변경 시 파이프라인을 통해 Azure VM에 애플리케이션 배포
+* 개발자가 StorageAccount 업로드 권한 문의
+* TA가 Service Principal 생성 후 Subscription Owner RBAC 권한 부여 → 개발자 전달
+* 개발자는 전달받은 **Service Principal Object ID/Secret을 소스코드에 포함**
+* 이후 Service Principal 탈취 → 해킹사고 발생
+
+**보기**
+① Repository에서 정적 분석을 통해 Password/Token/Secret 패턴 검사 및 사전 조치
+② StorageAccount 전용 AccessKey 발급 → 탈취시 영향 범위를 StorageAccount로 제한
+③ Azure VM에 Managed Identity 부여 → Service Principal 제공 불필요
+④ 이미 commit된 Secret 삭제 후 재커밋만으로는 보호 불가 → 추가 조치 필요
+⑤ Service Principal에 Owner 권한을 Subscription 대신 Resource Group에만 부여했다면 문제 없음
+## 정답
+
+👉 **⑤ (Resource Group 단위로 제한해도 문제 없다)**
+## 해설
+
+### ✅ 정답이 맞는 이유
+
+* SP Secret을 **소스코드에 저장하는 행위 자체**가 치명적 문제.
+* 권한 범위(Resource Group vs Subscription) 축소는 **피해 범위를 줄이는 조치일 뿐**, 해킹 가능성 자체는 여전히 존재.
+* 또한 RG Owner 권한 역시 Storage Account 외의 다른 리소스까지 제어 가능 → 위험.
+* 따라서 보기 ⑤는 보안 이슈를 해결하는 방안으로 **적절하지 않음**.
+### ❌ 다른 보기가 옳은 이유
+
+① **정적 분석(Security Scan)**
+
+* 소스코드에 Secret/Key 하드코딩 방지 → 사전 탐지 가능.
+* Azure DevOps / GitHub Advanced Security에서도 지원.
+
+② **Storage Account Access Key 활용**
+
+* 범용 SP Owner 권한보다 영향 범위를 최소화.
+* 다만 권장 방식은 Managed Identity/Role Assignment임.
+
+③ **Managed Identity**
+
+* VM에 직접 Managed Identity 부여 → Secret 주입 불필요.
+* 가장 안전하고 권장되는 방법.
+
+④ **Git History Secret**
+
+* commit 기록에 남은 Secret은 삭제/overwrite로 해결되지 않음.
+* Git history 재작성(`git filter-repo`, `BFG`) 또는 SP Secret Rotation 필요.
+## 핵심 요점
+
+* **소스코드 내 Secret 하드코딩 = 절대 금지**.
+* **Managed Identity / Key Vault** 사용이 보안 Best Practice.
+* 권한은 최소 범위 원칙(Least Privilege) 적용.
+* Git 저장소 유출 시 commit history까지 검증 필요.
+## 추가 학습 가이드
+
+📘 **Microsoft Learn 공식 문서**
+
+* [Azure에서 자격 증명 관리 Best Practice](https://learn.microsoft.com/ko-kr/azure/security/fundamentals/identity-management-best-practices)
+* [Azure Managed Identity 개요](https://learn.microsoft.com/ko-kr/azure/active-directory/managed-identities-azure-resources/overview)
+* [Azure Key Vault Secrets 관리](https://learn.microsoft.com/ko-kr/azure/key-vault/secrets/about-secrets)
+* [GitHub Code Scanning/Secret Scanning](https://docs.github.com/code-security/secret-scanning/about-secret-scanning)
+👉 이 문제의 출제 의도는 **“DevOps 환경에서 비밀정보 관리의 보안 원칙(Secret 하드코딩 금지, 최소 권한, Managed Identity 활용)”** 을 이해했는지 확인하는 것입니다.
+
+# 📊 DevOps 환경 Secret 관리 Best Practice 비교표
+
+| 항목                 | **비추천 (안티 패턴)**                                   | **권장 (Best Practice)**                                             | 설명                             |
+| ------------------ | ------------------------------------------------- | ------------------------------------------------------------------ | ------------------------------ |
+| **소스코드 관리**        | Secret/Token/Password를 **소스코드에 하드코딩**             | Secret은 절대 코드에 포함하지 않고 **환경변수 또는 Key Vault** 참조                    | Git History에 남으면 영구적으로 유출 가능   |
+| **저장소 스캔**         | 정적 분석/시크릿 스캐닝 미도입                                 | **정기적 Secret Scanning** (GitHub Advanced Security, SonarQube 등)    | 사전에 Secret 노출 탐지 및 차단          |
+| **자격 증명 관리**       | Service Principal Secret, Access Key를 직접 개발자에게 전달 | **Azure Managed Identity / Key Vault 연동**                          | Secret 없는 인증 (passwordless) 지원 |
+| **권한 부여 범위**       | Subscription 단위 Owner/Contributor 같은 광범위 권한       | **최소 권한 원칙 (Least Privilege)** → 리소스/Resource Group 단위 Role 부여     | 공격 시 피해 범위를 최소화                |
+| **Secret 저장소**     | 환경변수 파일(.env), ConfigMap에 평문 저장                   | **Azure Key Vault / GitHub Actions Secret / Azure DevOps Library** | 암호화된 Secret 저장소 활용             |
+| **Secret 로테이션**    | Secret을 장기간 변경 없이 사용                              | **주기적 로테이션 자동화** (Azure Key Vault Rotation Policy)                 | 탈취 시 피해 최소화                    |
+| **CI/CD 파이프라인 연동** | 빌드/배포 스크립트에 Access Key 직접 포함                      | **Federated Credential (OIDC) 기반 로그인** / Key Vault Secret 주입       | CI/CD 단계에서도 무비밀번호 인증 가능        |
+| **로그/모니터링**        | Secret 값이 로그/에러 메시지에 노출                           | **로그 마스킹 / DLP 적용**                                                | 보안 사고 시 2차 유출 방지               |
+
+---
+
+문항 16)
+A 고객사는 Azure에 시스템을 구성하고자 한다. 고객의 보안 요구 사항이 아래와 같을 때 **Azure Native로 해결할 수 있는 사항으로 적절하지 않은 것**을 고르시오. \[4점]
+
+**\[요구사항]**
+
+1. RDP(3389), SSH(22) 등 주요 포트들은 Inbound 접근 통제가 이루어져야 하며 접속 시도들은 로깅을 통해 모니터링하고자 한다.
+2. 유지관리 작업 시 관리자들이 RDP, SSH 포트를 통해 접속할 수 있도록 일시적인 접근이 필요하다.
+3. 인터넷으로 나가는 통신은 Azure 방화벽을 통하여야 한다.
+4. Azure 시스템은 On-Premise와 안정적인 연결을 위한 전용선이 필요하고, 네트워크 트래픽 도청이나 데이터 유출 방지를 위해 L3 이상의 통신 암호화를 적용해야 한다.
+5. Azure OpenAI 등 PaaS 서비스는 On-Premise와 Private한 통신이 가능해야 한다.
+
+**\[보기]**
+① Network Watcher의 NSG(네트워크 보안 그룹) 흐름 로그를 구성하여 주요 포트들에 대한 로그를 확인한다.
+② Public Endpoint로 구성 후 PaaS 서비스의 Firewall 설정을 On-Premise Private CIDR만 연결하도록 구성한다.
+③ Azure에서 외부 인터넷으로 나가는 트래픽은 Azure Firewall을 경유하도록 User Defined Routes를 설정한다.
+④ Microsoft Defender의 JIT(Just-In-Time) 액세스를 통해, 특정 사용자에게 지정된 시간 동안 선택한 포트에 대한 액세스를 허용한다.
+⑤ On-Premise와 연결 시 ExpressRoute Gateway와 VPN Gateway를 추가하여 VPN을 함께 구성한다.
+## 정답
+
+👉 **② Public Endpoint + Firewall 설정으로 Private 통신을 구현한다는 설명은 부적절**
+## 해설
+
+### ✅ 정답이 맞는 이유
+
+* Public Endpoint는 Azure 백본망을 사용하더라도 **Public IP를 통한 외부 노출**이 발생.
+* PaaS 서비스의 Firewall은 **Public IP 기반 접근 제어만 가능**하며, **Private IP 기반 통신**은 불가.
+* 따라서 On-Prem ↔ PaaS 간 Private 통신 요건은 **Private Endpoint**(Azure Private Link)를 통해 해결해야 한다.
+### ❌ 다른 보기가 적절한 이유
+
+① **NSG Flow Logs**
+
+* NSG(네트워크 보안 그룹) 로그를 Network Watcher와 연계 → 특정 포트 접근 로깅 및 모니터링 가능.
+* 요구사항 ① 충족.
+
+③ **Azure Firewall + UDR**
+
+* UDR(User Defined Route)로 트래픽 경로를 Azure Firewall로 강제 지정 → 외부 인터넷은 모두 Firewall 통과.
+* 요구사항 ③ 충족.
+
+④ **JIT Access (Microsoft Defender for Cloud)**
+
+* RDP/SSH 포트를 평소 차단, 관리자가 필요한 시간에만 열어줌 → 무단 접근 방지 + 요구사항 ② 충족.
+
+⑤ **ExpressRoute + VPN Gateway**
+
+* ExpressRoute 단독은 암호화 미지원, VPN과 함께 사용하면 **전용선 + 암호화** 제공.
+* 요구사항 ④ 충족.
+## 핵심 요점
+
+* **PaaS 서비스 Private 통신**: 반드시 **Private Endpoint (Azure Private Link)** 활용.
+* **RDP/SSH 보안**: NSG, JIT Access, Bastion 활용.
+* **Outbound 보안**: Azure Firewall + UDR.
+* **On-Prem ↔ Azure 보안 연결**: ExpressRoute + VPN Gateway → 암호화.
+## 추가 학습 가이드
+
+📘 **Microsoft 공식 문서**
+
+* [Azure Private Endpoint & Private Link](https://learn.microsoft.com/ko-kr/azure/private-link/private-endpoint-overview)
+* [Just-In-Time VM Access](https://learn.microsoft.com/ko-kr/azure/defender-for-cloud/just-in-time-access-overview)
+* [Azure Firewall 개요](https://learn.microsoft.com/ko-kr/azure/firewall/overview)
+* [ExpressRoute + VPN Gateway](https://learn.microsoft.com/ko-kr/azure/expressroute/expressroute-howto-coexist-resource-manager)
+👉 이 문제의 출제 의도는 \*\*“Azure 보안 요구사항 충족을 위한 Native 서비스 활용 방안”\*\*을 구분할 수 있는지 확인하는 것입니다.
+
+# 📊 보안 요구사항별 Azure Native 서비스 매핑
+
+| 요구사항                                                  | 적합한 Azure Native 서비스                                                        | 설명                                                     |
+| ----------------------------------------------------- | --------------------------------------------------------------------------- | ------------------------------------------------------ |
+| **① RDP(3389), SSH(22) 등 주요 포트 Inbound 통제 및 로깅**      | - **NSG (Network Security Group)**<br>- **NSG Flow Logs (Network Watcher)** | NSG로 접근 제어, Flow Logs로 포트 접근 로깅/모니터링 가능                |
+| **② 유지관리 시 일시적 RDP/SSH 접근 허용**                        | - **Microsoft Defender for Cloud JIT Access**<br>- (또는 Azure Bastion)       | JIT(Just-In-Time) 접근으로 특정 시간, 특정 사용자에만 포트 허용           |
+| **③ 외부 인터넷 통신은 Firewall 경유**                          | - **Azure Firewall** + **UDR(User Defined Routes)**                         | UDR로 아웃바운드 트래픽을 Azure Firewall로 강제 라우팅                 |
+| **④ On-Prem ↔ Azure 전용선 + L3 이상 암호화**                 | - **ExpressRoute** + **VPN Gateway (IPSec)**                                | ExpressRoute는 전용선, VPN과 함께 구성 시 암호화 통신 제공              |
+| **⑤ PaaS 서비스 (예: Azure OpenAI) ↔ On-Prem Private 통신** | - **Private Endpoint (Azure Private Link)**                                 | Public IP 노출 없이 Private IP 기반으로 On-Prem ↔ PaaS 간 통신 가능 |
+
+---
+
+**문항 17)** A사는 Azure를 사용하고 있으며 아래와 같이 Application과 Database를 별도의 Virtual Network로 Peering을 통해 운영하고 있다. 같은 Database를 사용하는 신규 서비스 추가가 필요하여 아래와 같이 Standard Load Balancer와 Subnet을 생성했다. Database에 Application VM만 접근 가능하도록 Database Network Security Group의 Inbound Rule을 조정해야 한다. Database는 서비스 포트로 3306을 사용하고 있다.
+Service1, Service2, Database의 각 VM들은 ASG-Service1, ASG-Service2, ASG-Database 라는 이름의 Application Security Group으로 구성되어 있다. 다음 중 Service1, Service2의 VM들이 Database에 접근하기 위한 Rule로 최소한의 권한 법칙에 가장 충족한 것을 고르시오. [4점]
+
+① Source: `10.0.2.0/24, 10.0.3.0/24` → Destination: `10.1.0.0/16` / Port 3306 / Allow
+② Source: `ASG-Service1, ASG-Service2` → Destination: `10.1.2.0/24` / Port 3306 / Allow
+③ Source: `10.0.2.0/24, 10.0.3.0/24` → Destination: `ASG-Database` / Port 3306 / Allow
+④ Source: `ASG-Service1, ASG-Service2` → Destination: `ASG-Database` / Port 3306 / Allow
+⑤ Source: `10.0.0.0/16` → Destination: `10.1.2.0/24` / Port 3306 / Allow
+## 정답
+
+👉 **③ Source: 10.0.2.0/24, 10.0.3.0/24 → Destination: ASG-Database / TCP 3306 Allow**
+## 해설 (왜 ③이 최소 권한인가?)
+
+* **ASG(Application Security Group)는 동일 VNet 내 NIC만 유효**합니다.
+
+  * Database NSG에서 **Source로 App VNet의 ASG(Service1/2)** 를 참조해도 **VNet이 다르면 적용되지 않습니다.**
+* 반면 **Destination**은 DB VNet의 NIC들이 속한 **`ASG-Database`** 로 정확히 한정할 수 있습니다.
+* **Source는 VNet 간 통신이므로 IP Prefix(서브넷 범위)** 로 최소 범위(서비스 서브넷 10.0.2.0/24, 10.0.3.0/24)만 허용하는 것이 **가장 협소하고 안전**합니다.
+* 따라서 **“Source=서브넷 CIDR(교차 VNet), Destination=ASG-Database(동일 VNet)”** 조합인 **③이 최소 권한 원칙을 가장 잘 충족**합니다.
+## 다른 보기 오답 사유
+
+* **①** Destination을 `10.1.0.0/16` 전체 VNet으로 허용 → **과도하게 넓음(Least Privilege 위배)**.
+* **②** Source에 `ASG-Service1/2` 사용 → **ASG는 VNet 간 참조 불가**, 규칙이 의도대로 동작하지 않음.
+* **④** Source와 Destination 모두 ASG → Source ASG가 **다른 VNet**이므로 **효과 없음**.
+* **⑤** Source를 `10.0.0.0/16` 전체로 허용 → **불필요하게 넓은 범위**(Service1/2 외 다른 서브넷까지 포함).
+## 핵심 요점
+
+* **ASG는 동일 VNet 한정**(Peering 간 교차 사용 불가).
+* **교차 VNet 트래픽 제어**는 보통 **Source를 IP Prefix(CIDR)** 로, **Destination은 해당 VNet의 ASG** 로 조합하면 최소 권한 설계에 유리.
+* NSG 규칙은 **정확한 대상(ASG-Database)과 최소 소스 범위(해당 서비스 서브넷)** 로 한정하라.
+## 추가 학습 가이드 (Microsoft Learn)
+
+* **Application Security Groups(ASG) 개요 및 제한사항**
+
+  * [https://learn.microsoft.com/azure/virtual-network/application-security-groups](https://learn.microsoft.com/azure/virtual-network/application-security-groups)
+* **Network Security Groups(NSG) 개요**
+
+  * [https://learn.microsoft.com/azure/virtual-network/network-security-groups-overview](https://learn.microsoft.com/azure/virtual-network/network-security-groups-overview)
+* **VNet Peering**
+
+  * [https://learn.microsoft.com/azure/virtual-network/virtual-network-peering-overview](https://learn.microsoft.com/azure/virtual-network/virtual-network-peering-overview)
