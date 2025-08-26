@@ -469,3 +469,454 @@ VM 기반으로 구축된 웹 서비스를 운영하고 있다. 해당 서비스
 | **시험 포인트**       | - LB의 HTTP Probe는 **200 응답만 정상**<br>- 상태 코드 범위 지정 불가                                  | - AppGW Probe는 상태 코드 범위 지정 가능<br>- 더 정교한 장애 감지 가능                                                                          |
 
 ---
+문항7)
+K 책임은 G 고객사의 클라우드 MSP를 수행하는 담당자이다. 디스크 변경 작업을 검토한 내용 중 잘못 설명된 보기를 고르시오. \[3점]
+
+① VM에 데이터 디스크를 추가로 attach 하기 위해서는 VM을 중지시키지 않고 구성이 가능하기 때문에 별도의 서비스 중단 시간을 고려하지 않고 작업을 진행할 수 있다.
+② 데이터 디스크를 동일한 유형의 더 큰 사이즈로 resize 하는 경우 VM을 중지시키지 않고 작업이 가능하여 별도의 서비스 중단 시간을 고려하지 않고 작업을 진행할 수 있다.
+③ 데이터 디스크가 공유 디스크로 다수의 VM에 할당된 경우 사이즈 조정을 위해서는 모든 VM에서 detach 이후 진행을 해야 하기 때문에 서비스 중단 시간을 확보한 이후 작업을 진행할 수 있다.
+④ VM에 attach되었지만 볼륨을 구성하지 않았던 데이터 디스크에 대한 삭제 요청 시에는 VM을 중지시키지 않고 detach가 가능하기 때문에 별도의 서비스 중단 시간을 고려하지 않고 작업을 진행할 수 있다.
+⑤ 할당된 데이터 디스크의 사이즈의 축소를 요청하는 경우 용량 문제가 없다면 해당 데이터 디스크에서 직접 용량을 줄일 수 있으므로 서비스 중단 시간을 고려하지 않고 작업을 진행할 수 있다.
+## 정답
+
+👉 **⑤ 데이터 디스크 사이즈 축소 가능하다는 설명 (잘못된 내용)**
+## 해설
+
+### ✅ 정답이 맞는 이유
+
+* **Azure Managed Disks**는 **크기 확장(Resize Up)은 지원**,
+  하지만 **디스크 크기 축소(Resize Down)는 지원하지 않음**.
+* 축소하려면:
+
+  1. 새 디스크를 생성 (더 작은 사이즈),
+  2. 기존 데이터를 새 디스크로 복제,
+  3. 원본 디스크를 삭제해야 함.
+* 따라서 보기 ⑤는 잘못된 설명이다.
+### ❌ 다른 보기가 정답이 아닌 이유
+
+① **데이터 디스크 추가 Attach**
+
+* VM 실행 중에도 디스크 추가 가능 → 서비스 중단 없음 → 올바른 설명.
+
+② **디스크 Resize (확장)**
+
+* VM 실행 중에도 **동일 디스크 유형 내에서 확장 가능** → 서비스 중단 없음.
+
+③ **공유 디스크 Resize**
+
+* 공유 디스크는 다수 VM에 연결되어 있으므로 **Resize 전 detach 필요** → 서비스 중단 발생.
+
+④ **미사용 디스크 Detach & 삭제**
+
+* 단순히 attach 상태지만 OS/볼륨으로 사용되지 않은 경우, VM 중지 없이 삭제 가능 → 올바른 설명.
+## 핵심 요점
+
+* **Azure Managed Disk Resize 규칙**
+
+  * 확장(크기 증가): 지원, 온라인 작업 가능.
+  * 축소(크기 감소): 지원 안 함 → 새 디스크로 마이그레이션 필요.
+* **Attach/Detach**: 대부분 온라인 가능.
+* **공유 디스크(Shared Disk)**: Resize 시 반드시 detach 필요.
+## 추가 학습 가이드
+
+📘 **Microsoft Learn 공식 문서**
+
+* [Azure Managed Disks 개요](https://learn.microsoft.com/ko-kr/azure/virtual-machines/managed-disks-overview)
+* [Azure Managed Disks 크기 조정](https://learn.microsoft.com/ko-kr/azure/virtual-machines/disks-resize)
+* [Azure VM에 디스크 연결/분리](https://learn.microsoft.com/ko-kr/azure/virtual-machines/attach-disk-portal)
+* [Azure Shared Disks 개요](https://learn.microsoft.com/ko-kr/azure/virtual-machines/disks-shared)
+
+# 📊 Azure Managed Disk 작업 가능/불가능 요약표
+
+| 작업 항목                                 | 지원 여부 | VM 실행 중 가능 여부          | 비고                        |
+| ------------------------------------- | ----- | ---------------------- | ------------------------- |
+| **데이터 디스크 Attach**                    | ✅ 가능  | ✅ VM 중지 불필요            | 실행 중인 VM에 추가 연결 가능        |
+| **데이터 디스크 Detach**                    | ✅ 가능  | ✅ VM 중지 불필요            | 단, OS 디스크는 Detach 불가      |
+| **디스크 Resize (확장)**                   | ✅ 가능  | ✅ VM 중지 불필요            | 동일 디스크 유형 내 확장만 가능        |
+| **디스크 Resize (축소)**                   | ❌ 불가  | ❌ 불가                   | 새 디스크 생성 → 데이터 마이그레이션 필요  |
+| **OS 디스크 교체**                         | ✅ 가능  | ❌ VM 재시작 필요            | Managed Disk 스왑 또는 복제 방식  |
+| **디스크 유형 변경 (예: Standard → Premium)** | ✅ 가능  | ⚠️ VM 중지 필요할 수 있음      | 일부 시나리오는 VM 중지 필요         |
+| **공유 디스크(Shared Disk) Resize**        | ⚠️ 가능 | ❌ VM detach 필요         | Resize 전 모든 VM에서 연결 해제 필요 |
+| **스냅샷 생성**                            | ✅ 가능  | ✅ VM 실행 중 가능           | Crash-consistent 스냅샷      |
+| **디스크 암호화 (SSE, CMK, ADE)**           | ✅ 가능  | ⚠️ 설정 방식에 따라 VM 재부팅 필요 | 보안 정책 연계                  |
+
+---
+
+문항8)
+Azure Public 클라우드와 On-premise 간 전용선 연결 구성을 하려고 한다. 보기의 전용선 구축 전 고려해야 할 내용 중 적절하지 않은 것을 고르시오. \[4점]
+
+① Korea Central Region의 Azure ExpressRoute Circuit(Premium SKU)을 Japan EAST Region에 있는 구축된 ExpressRoute Gateway와 연결 후 On-Premise와 Japan EAST Region의 VNET 간의 통신이 가능하다.
+② Korea Central Region의 Azure ExpressRoute Circuit(Standard SKU)을 Korea South Region에 있는 ExpressRoute Gateway와 연결 후 On-Premise와 South Region의 VNET 간의 통신이 가능하다.
+③ Korea Central Region의 Azure ExpressRoute Circuit과 연결된 On-Premise와 Korea South Region의 Azure ExpressRoute Circuit과 연결된 On-Premise는 서로 통신이 가능하므로 On-Premise 간 통신을 위해 별도의 전용회선 연결이 불필요하다.
+④ Azure ExpressRoute Circuit Private Peering과 ExpressRoute Gateway 간에는 QoS 설정 기능이 없기 때문에 ExpressRoute Gateway에 여러 개의 VNET이 Peering되어 연결된 경우 하나의 VNET에서 전용선 대역폭을 모두 사용하여 다른 VNET에 영향을 끼치지 않도록 설계 시 고려가 필요하다.
+⑤ Azure ExpressRoute Circuit과 Azure ExpressRoute Gateway를 통해 두 개의 VNET이 연결되어 있는 경우 ExpressRoute Circuit 자체의 라우팅 기능을 통해 VNET 간 직접 통신이 가능하다.
+## 정답
+
+👉 **③ On-Premise 간 통신 가능하다는 설명 (잘못된 내용)**
+## 해설
+
+### ✅ 정답이 맞는 이유
+
+* ExpressRoute Circuit은 **On-Premise ↔ Azure** 전용선 연결 제공.
+* 단일 Circuit 간에 **다른 On-Premise와 직접 연결 기능은 없음**.
+* **On-Premise ↔ On-Premise 간 연결**을 원하면 **Global Reach 옵션**을 추가해야 함.
+* 따라서 ③의 설명은 잘못됨.
+### ❌ 다른 보기가 정답이 아닌 이유
+
+① **Premium SKU + Cross-region 연결**
+
+* Premium SKU ExpressRoute는 **Cross-region VNet 연결 가능**.
+* Korea Central Circuit → Japan East VNet 연결 가능 → 올바른 설명.
+
+② **Standard SKU + 동일 국가 내 Pair Region 연결**
+
+* Standard SKU로도 동일한 리전 내 또는 동일 국가 내 Pair Region VNet 연결 가능.
+* Korea Central ↔ Korea South 가능 → 올바른 설명.
+
+④ **QoS 없음 & 대역폭 공유**
+
+* ExpressRoute Gateway에는 QoS 기능 없음.
+* 여러 VNet이 Peering되어 Circuit을 공유하면 한 VNet 트래픽이 전체 대역폭을 잠식할 수 있음 → 설계 시 고려 필요 → 올바른 설명.
+
+⑤ **Circuit을 통한 VNet 간 라우팅**
+
+* 동일 ExpressRoute Circuit에 연결된 여러 VNet은 Gateway Transit 기능을 통해 상호 통신 가능.
+* ExpressRoute Circuit 자체가 라우팅 테이블을 통해 전달 가능 → 올바른 설명.
+## 핵심 요점
+
+* **ExpressRoute SKU 차이**
+
+  * **Standard SKU**: 동일 지역 또는 인접 지역 VNet 연결 지원
+  * **Premium SKU**: 글로벌 리전 간 VNet 연결 가능
+
+* **On-Premise ↔ On-Premise 통신**
+
+  * ExpressRoute Circuit만으로는 불가능
+  * **ExpressRoute Global Reach** 필요
+
+* **QoS 미지원**
+
+  * Circuit 대역폭은 공유되므로 네트워크 설계 시 트래픽 관리 필요
+## 추가 학습 가이드
+
+📘 **Microsoft 공식 문서**
+
+* [Azure ExpressRoute 개요](https://learn.microsoft.com/ko-kr/azure/expressroute/expressroute-introduction)
+* [ExpressRoute Global Reach](https://learn.microsoft.com/ko-kr/azure/expressroute/expressroute-global-reach)
+* [ExpressRoute FAQ](https://learn.microsoft.com/ko-kr/azure/expressroute/expressroute-faqs)
+👉 이 문제의 출제 의도는 \*\*“ExpressRoute는 On-Premise ↔ Azure 전용선이지, On-Premise ↔ On-Premise 연결은 별도 옵션(Global Reach)이 필요하다”\*\*를 구분할 수 있는지 확인하는 것입니다.
+
+# 📊 Azure ExpressRoute 기능 비교표
+
+| 항목               | **Standard SKU**                                                                | **Premium SKU**                                           | **Global Reach (옵션)**                                   |
+| ---------------- | ------------------------------------------------------------------------------- | --------------------------------------------------------- | ------------------------------------------------------- |
+| **기본 목적**        | On-Prem ↔ Azure 연결 (지역/국가 단위)                                                   | On-Prem ↔ Azure 연결 (글로벌 리전 포함)                            | On-Prem ↔ On-Prem 연결 (ExpressRoute 회선 간 연결)             |
+| **VNet 연결 범위**   | - 동일 지역 내 VNet 연결 가능<br>- 일부 Pair Region 연결 가능 (예: Korea Central ↔ Korea South) | - **글로벌 리전 간 VNet 연결 가능** (예: Korea Central ↔ Japan East) | - On-Prem ↔ On-Prem 연결 지원 (Circuit 간 Transit)           |
+| **최대 VNet 연결 수** | 최대 10개 (지역 제한)                                                                  | 최대 100개 (Cross-region 지원)                                 | Circuit 2개 연결 시 양쪽 On-Prem 네트워크 간 통신                    |
+| **라우팅**          | 지역 내 라우팅                                                                        | 글로벌 라우팅 가능                                                | On-Prem ↔ On-Prem 라우팅 가능                                |
+| **비용**           | 기본 요금                                                                           | Standard보다 높은 요금 (Cross-region 포함)                        | 옵션 비용 별도 (Global Reach 추가 요금)                           |
+| **주요 사용 사례**     | - 단일 리전 서비스 배포<br>- 동일 국가 내 DR 사이트 연결                                           | - 다국적 기업 글로벌 VNet 연결<br>- 리전 간 DR/BCP 구성                  | - 다수 지사 On-Prem ↔ 본사 On-Prem 연결<br>- MPLS 대체/보완         |
+| **제한 사항**        | - Cross-region 불가<br>- 연결 수 제한(10개)                                             | - 비용 증가                                                   | - Azure 리소스 ↔ On-Prem 직접 연결이 아님 (Circuit 간 Transit만 제공) |
+
+---
+문항9)
+B 사의 김선임은 Kubernetes 기반으로 구축된 홈쇼핑 서비스를 운영하고 있다. 조회용 API 서비스 로그를 확인해보니 간헐적으로 에러가 발생하였으며 원인을 추적한 결과 서비스의 기능 개선 및 오류 수정을 위한 배포 시 POD 시작/종료 시점에 에러가 발생하고 있었다. 조치사항으로 잘못된 것을 고르시오. \[4 점]
+
+① POD 종료 시 에러는 PreStop Hook를 설정하여 Graceful ShutDown을 통해 해결한다.
+② ReadinessProbe의 설정을 조정하여 서비스가 정상 기동 후에 K8S Service에 등록되도록 한다.
+③ StartUpProbe를 활용하여 LivenessProbe와 ReadinessProbe가 서비스가 정상 기동 후에 동작하도록 한다.
+④ Ingress 컨트롤러에서 Internal Error(500) 오류 발생 시 Retry를 적용하여 End-User 에러 발생 빈도를 현저히 감소시킬 수 있다.
+⑤ Service Mesh를 사용하고 에러가 발생하는 서버에서 다른 Micro Service Pod의 조회 API를 호출하는 경우 Circuit Breaker의 Retry 설정을 확인하여 다른 Micro Service 배포 시 발생할 수 있는 에러를 줄일 수 있다.
+## 정답
+
+👉 **④ Ingress Controller에서 Internal Error(500)에 Retry 적용 (잘못된 조치)**
+## 해설
+
+### ✅ 정답이 맞는 이유
+
+* **500 Internal Server Error**는 애플리케이션 내부 로직에서 발생하는 오류.
+* 단순히 Ingress Controller에서 Retry를 추가한다고 해서 해결되지 않음.
+* Retry는 일시적인 네트워크 오류나 **502/503 Bad Gateway, Connection reset** 같은 경우에는 효과가 있을 수 있지만, **500 오류는 근본적으로 애플리케이션 코드 수정이 필요**.
+* 따라서 ④는 잘못된 조치다.
+### ❌ 다른 보기가 정답이 아닌 이유
+
+① **PreStop Hook + Graceful Shutdown**
+
+* Pod 종료 전에 애플리케이션이 요청을 정상적으로 마무리할 시간을 확보.
+* 무중단 배포 시 필수적인 설정 → 적절한 조치.
+
+② **Readiness Probe 설정**
+
+* Pod이 실제로 정상 기동된 후에만 Service에 트래픽 전달.
+* 배포 시 초기 기동 지연으로 인한 오류 방지 → 적절한 조치.
+
+③ **Startup Probe 활용**
+
+* 애플리케이션 초기 기동 시간이 긴 경우 Liveness/Readiness Probe와 충돌을 막아줌.
+* 서비스가 안정적으로 올라온 이후에 Probe 동작 → 적절한 조치.
+
+⑤ **Service Mesh Circuit Breaker Retry 설정**
+
+* 다른 Microservice 배포 중 일시적 오류 시 Retry로 안정성 확보 가능.
+* 올바른 MSA 패턴 활용 → 적절한 조치.
+## 핵심 요점
+
+* **Kubernetes 무중단 배포 핵심 기법**
+
+  * PreStop Hook (Graceful Shutdown)
+  * Readiness Probe (정상 기동 후 트래픽 전달)
+  * Startup Probe (긴 초기화 시간 보완)
+  * Service Mesh Circuit Breaker (MSA 통신 안정화)
+* **Ingress Controller Retry 한계**
+
+  * 502/503 등 일시적 네트워크 오류는 Retry로 개선 가능
+  * **500 Internal Error는 애플리케이션 코드 문제 → Retry로 해결 불가**
+## 추가 학습 가이드
+
+📘 **Microsoft / CNCF 공식 문서**
+
+* [Kubernetes Probes (Liveness, Readiness, Startup)](https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle/#container-probes)
+* [Kubernetes Pod Lifecycle Hooks (PreStop, PostStart)](https://kubernetes.io/docs/concepts/containers/container-lifecycle-hooks/)
+* [Service Mesh Circuit Breaker 패턴 (Istio)](https://istio.io/latest/docs/tasks/traffic-management/circuit-breaking/)
+* [NGINX Ingress Controller Retry 정책](https://kubernetes.github.io/ingress-nginx/user-guide/nginx-configuration/annotations/#retry)
+👉 이 문제의 출제 의도는 \*\*“Kubernetes Pod 배포 시 무중단 서비스 보장을 위한 Probe 및 Hook 활용 이해”\*\*와 **Retry 적용 범위(네트워크 오류 vs 애플리케이션 오류) 구분**을 확인하는 것입니다.
+
+# 🖼️ Kubernetes 무중단 배포 구성요소 관계도
+
+```
+[사용자 요청]
+      │
+      ▼
+ ┌───────────────┐
+ │ Ingress Controller│
+ │ (L7 LB)          │
+ └───────────────┘
+          │
+   ┌──────┴────────┐
+   ▼               ▼
+[Pod A]          [Pod B]
+(구버전)         (신버전)
+ │                 │
+ │ PreStop Hook     │ Startup Probe
+ │ (Graceful        │ (초기화 완료 전
+ │  Shutdown)       │  Liveness/Readiness
+ │                  │  Probe 지연)
+ ▼                  ▼
+Readiness Probe   Readiness Probe
+(정상 응답 시만   (정상 기동 후에만
+ Service 등록)     Service 등록)
+```
+## 🔑 관계 설명
+
+* **Ingress Controller**
+
+  * 외부 요청을 Service로 라우팅
+  * Retry 가능하지만 **500 Internal Error는 해결 불가** (애플리케이션 수정 필요)
+
+* **Pod (구버전 → 신버전)**
+
+  * **PreStop Hook**: 종료 시 기존 요청을 마무리하고 안전하게 내려감
+  * **Startup Probe**: 애플리케이션 초기화 완료 전 Liveness/Readiness 검사 지연
+  * **Readiness Probe**: 정상 상태가 된 이후에만 Service에 등록, 트래픽 전달
+
+* **Service Mesh (Istio 등)**
+
+  * Microservice ↔ Microservice 호출 시 Circuit Breaker + Retry 적용
+  * 배포 중 일시적 장애(502/503) 완화 가능
+## ✅ 핵심 요약
+
+* **무중단 배포 4대 요소**
+
+  1. **PreStop Hook** → 종료 시 Graceful Shutdown
+  2. **Startup Probe** → 초기화 완료 전 불필요한 Probe 차단
+  3. **Readiness Probe** → 정상 상태 이후에만 트래픽 유입
+  4. **Service Mesh Circuit Breaker** → MSA 간 통신 오류 완화
+
+* **Ingress Retry 한계**: 네트워크 오류(502/503)는 개선 가능, **500 Internal Error는 불가**
+
+---
+
+문항10)
+다음 제시된 보기 중 **Azure Cache for Redis**를 활용하는 예시로 잘못 설명된 보기를 고르시오. \[3점]
+
+① DB에서 데이터를 빈번하게 조회하는 경우 DB에 부하를 주어 성능이 저하될 수 있으므로 해당 서비스를 데이터 캐시로 사용하여 애플리케이션 응답성을 높일 수 있다.
+② 해당 서비스를 세션저장소로 사용하여 WAS 간 세션 클러스터링을 구성할 수 있다.
+③ 애플리케이션이 비동기 처리를 해야 하나 별도의 Queue가 존재하지 않는 경우 해당 서비스를 활용하여 Queue 서비스를 대체할 수 있다.
+④ 해당 서비스는 데이터를 메모리에만 저장하며, Ehcache와 같은 로컬 Cache보다 속도가 빠르므로 애플리케이션에서 데이터 캐시 사용 필요 시 성능 측면에서 해당 서비스를 우선적으로 사용하여야 한다.
+⑤ 해당 서비스는 Premium Tier 사용 시 Scale Up/Down뿐 아니라 Scale In/Out도 적용할 수 있어 부하 증가에 따라 유연하게 대응이 가능하다.
+## 정답
+
+👉 **④ Ehcache 같은 로컬 캐시보다 Azure Redis Cache가 무조건 더 빠르다** (잘못된 설명)
+## 해설
+
+### ✅ 정답이 맞는 이유
+
+* \*\*로컬 캐시(Ehcache)\*\*는 애플리케이션 서버의 메모리에 직접 접근 → 네트워크 구간이 없음 → **속도는 Redis보다 일반적으로 더 빠름**.
+* 반면, **Redis는 네트워크 오버헤드**가 있기 때문에 속도는 다소 느리지만, **여러 서버 간 캐시 공유, 데이터 일관성, 영속성 지원** 등의 장점이 있음.
+* 따라서 성능만 놓고 보면 로컬 캐시가 더 빠르고, Redis는 **분산 환경, 데이터 동기화, 세션 관리**에 적합.
+### ❌ 다른 보기가 정답이 아닌 이유
+
+① **DB 캐시 활용**
+
+* DB 조회 부하를 줄이기 위한 캐시 계층으로 Redis는 대표적인 활용 사례 → 올바른 설명.
+
+② **세션 저장소 활용**
+
+* Redis는 Key-Value 저장소로 세션 공유에 적합 → WAS 간 세션 클러스터링 가능 → 올바른 설명.
+
+③ **간단한 Queue 대체**
+
+* Redis의 **List 자료구조**를 활용하여 Producer/Consumer 패턴 구현 가능 → 기본적인 Queue 역할 가능 → 올바른 설명.
+
+⑤ **Premium Tier Scale In/Out 지원**
+
+* Premium 이상 SKU는 **클러스터링(Sharding)** 지원 → Scale Out 가능 → 부하 증가에 유연 대응 → 올바른 설명.
+## 핵심 요점
+
+* **로컬 캐시 vs Redis**
+
+  * 로컬 캐시(Ehcache): 네트워크 구간 없음 → 속도는 가장 빠름, 하지만 **서버별 캐시 동기화 어려움**
+  * Redis: 네트워크 오버헤드 있음, 하지만 **분산 캐시, 세션 클러스터링, 고가용성, 영속성** 지원
+
+* **Redis 활용 사례**
+
+  * 캐싱 계층 (DB 부하 완화)
+  * 세션 저장소 (WAS 간 공유)
+  * 간단한 메시지 Queue
+  * 분산 락, Pub/Sub 시스템
+## 추가 학습 가이드
+
+📘 **Microsoft Learn 공식 문서**
+
+* [Azure Cache for Redis 개요](https://learn.microsoft.com/ko-kr/azure/azure-cache-for-redis/cache-overview)
+* [Azure Cache for Redis 활용 패턴](https://learn.microsoft.com/ko-kr/azure/azure-cache-for-redis/cache-use-cases)
+* [Azure Cache for Redis 확장 (Clustering)](https://learn.microsoft.com/ko-kr/azure/azure-cache-for-redis/cache-how-to-premium-clustering)
+👉 이 문제의 출제 의도는 \*\*“Redis는 로컬 캐시보다 빠른 게 아니라, 분산 환경에서의 일관성과 고가용성이 장점”\*\*임을 구분하는 데 있습니다.
+
+# 📊 로컬 캐시 vs Redis 캐시 비교표
+
+| 항목          | **로컬 캐시 (예: Ehcache, Caffeine)**   | **Redis 캐시 (Azure Cache for Redis 등)** |
+| ----------- | ---------------------------------- | -------------------------------------- |
+| **위치**      | 애플리케이션 서버 메모리 내부                   | 외부 독립 캐시 서버 (네트워크 통해 접근)               |
+| **속도**      | ✅ 가장 빠름 (네트워크 경로 없음)               | ⚠️ 네트워크 오버헤드 → 로컬 캐시보단 느림              |
+| **확장성**     | 서버 단위 (서버 수 늘면 캐시 데이터 분산/불일치 발생)   | 클러스터링/샤딩으로 수평 확장 지원                    |
+| **데이터 일관성** | 각 서버마다 별도 캐시 → 데이터 불일치 발생 가능       | 중앙 집중형 캐시 → 다수 서버 간 데이터 일관성 유지         |
+| **세션 공유**   | 별도 구현 필요 (Sticky Session 등)        | 기본 지원 (세션 저장소로 활용 가능)                  |
+| **영속성**     | ❌ 지원하지 않음 (프로세스 종료 시 캐시 소멸)        | ✅ RDB/AOF 모드로 디스크에 저장 가능               |
+| **고가용성**    | ❌ 서버 다운 시 캐시 손실                    | ✅ 복제/페일오버 지원 (클러스터링)                   |
+| **주요 활용**   | 단일 서버 환경, 빈번히 사용되는 데이터 캐싱 (속도 최우선) | 분산 환경, 세션 클러스터링, DB 부하 완화, 메시지 큐 대체    |
+| **비용**      | 무료 (서버 메모리만 사용)                    | 별도 Redis 인프라 비용 필요                     |
+
+---
+
+문항 11)
+A 선임은 Kubernetes 환경의 SpringBoot 2.7.18 (JDK 8u441)로 구성된 Pod 에 장애가 자주 발생하는 것을 조치하기 위해 투입되었다. Deployment.yaml 파일에서 수정되어야 할 부분을 찾아 Line Number 를 작성하시오. \[4 점]
+
+\[추가 확인 사안 및 제한]
+
+* 장애가 발생 중인 Pod 의 SpringBoot 가 사용하는 Max Heap Memory size 는 1GB 이다.
+* 원인 파악 진행 중 POD 장애 시 Out Of Memory 관련 로그를 확인하였다.
+* **configmap 과 service.yaml 을 수정하지 않는 선에서** 조치를 수행해야 한다.
+
+\[ Pod Describe ]
+
+```
+State: Waiting
+Reason: CrashLoopBackOff
+Last State: Terminated
+Reason: OOMKilled
+Exit Code: 137
+```
+
+`configmap.yaml`
+
+```
+apiVersion: v1
+data:
+  _JAVA_OPTIONS: -Xmx1g
+metadata:
+  name: cm-backend
+  namespace: default
+```
+
+`service.yaml`
+
+```
+apiVersion: v1
+metadata:
+  name: svc-backend
+  namespace: default
+spec:
+  ports:
+  - name: http
+    port: 80
+    protocol: TCP
+    targetPort: 80
+  selector:
+    app: backend
+```
+
+`deployment.yaml`
+
+```
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: backend
+spec:
+  replicas: 2
+  selector:
+    matchLabels: backend
+  template:
+    metadata:
+      labels:
+        app: backend
+    spec:
+      containers:
+      - name: backend
+        image: backend:1.14.2
+        imagePullPolicy: Always
+        envFrom:
+        - configMapRef:
+            name: cm-backend
+        resources:
+          requests:
+            cpu: 500m
+            memory: 500Mi
+          limits:
+            cpu: 500m
+            memory: 500Mi
+```
+
+**답 Line : \_\_**
+## 정답
+
+👉 **27**
+## 해설 (왜 27라인인가?)
+
+* 현재 ConfigMap에서 **`_JAVA_OPTIONS: -Xmx1g`** 로 **JVM 최대 힙(1GiB)** 를 지정했습니다.
+* 하지만 `deployment.yaml`에서 **container memory limit = 500Mi** 로 설정되어 있습니다.
+* 컨테이너 메모리 제한(500Mi) < JVM 힙(≈1024Mi)이므로 **JVM이 힙을 확보하는 순간 cgroup 제한을 초과**하여 **`OOMKilled (ExitCode 137)`** 이 발생합니다.
+* 따라서 **`limits.memory`(문제에서 제시한 27라인)** 을 **힙 + JVM/스레드/네이티브 영역 오버헤드**를 고려해 **충분히 크게** 늘려야 합니다.
+
+  * 실무 권장치: **힙의 1.2\~1.5배 이상**(예: 힙 1Gi → limit **1280Mi\~1536Mi 이상**).
+  * 함께 **`requests.memory`** 도 합리적으로 상향(예: 1Gi에 맞춰 1Gi 근처)하는 것이 스케줄링 안정성에 유리합니다.
+
+> 추가 팁
+>
+> * JDK 8u191+ 에서는 컨테이너 메모리 인식이 기본 활성화(8u441 포함). 그래도 **힙(-Xmx)** 이 **limit** 이하가 되도록 설정하는 것이 원칙입니다.
+> * 가능하면 **`-XX:MaxRAMPercentage`** 등 **컨테이너 인식 기반 옵션**으로 힙을 비율로 설정하는 방법도 고려하세요(이번 문제는 configmap/service 수정 금지 조건이므로 제외).
+## 핵심 요점
+
+* **컨테이너 memory limit ≥ JVM 힙(-Xmx) + 오버헤드** 가 되도록 설정해야 OOMKilled 방지.
+* Spring Boot/Java 컨테이너에서는 **리소스 제한과 JVM 메모리 옵션의 일치**가 매우 중요.
+* 장애 메시지 `CrashLoopBackOff` + `OOMKilled(137)` 는 **메모리 제한 불일치**의 전형적인 신호.
+## 추가 학습 가이드 (공식 문서)
+
+* AKS 운영 베스트 프랙티스 – 리소스 요청/제한
+  🔗 [https://learn.microsoft.com/azure/aks/operator-best-practices-cluster-isolation#resource-requests-and-limits](https://learn.microsoft.com/azure/aks/operator-best-practices-cluster-isolation#resource-requests-and-limits)
+* AKS 트러블슈팅(GPU/메모리/OOM 등 일반 가이드 포함)
+  🔗 [https://learn.microsoft.com/azure/aks/troubleshooting](https://learn.microsoft.com/azure/aks/troubleshooting)
+
+---
+
