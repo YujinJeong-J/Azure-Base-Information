@@ -1369,3 +1369,153 @@ Service1, Service2, Database의 각 VM들은 ASG-Service1, ASG-Service2, ASG-Dat
 * **VNet Peering**
 
   * [https://learn.microsoft.com/azure/virtual-network/virtual-network-peering-overview](https://learn.microsoft.com/azure/virtual-network/virtual-network-peering-overview)
+
+---
+
+문항18) A책임은 프로젝트에서 AKS 기반환경에서 MSA 프로젝트를 진행중이다. 구축되는 시스템의 보안요건을 만족시키기 위해서 데이터 전송 및 저장 시 암호화를 적용하여야 한다. 이를 위해서 다음과 같이 아키텍처 설계서를 작성하였다. 이를 구현하기 위한 방안 중 잘못된 것을 고르시오. [4점]
+![](img/문항18.png)
+① WAF\_v2 SKU에서 TLS 프로토콜 수신기를 REST API, PowerShell 및 포털에서 생성하여 상호 인증 구성이 가능하다.
+② Azure Firewall을 Premium SKU로 생성하여 구성이 가능하다.
+③ 응용 어플리케이션은 Always Encrypted를 지원하는 드라이버로 변경하여 Always Encrypted와 Dynamic data masking을 동시에 사용할 수 있다.
+④ Azure Files는 Azure Key Vault에 키를 저장하고 스토리지 계정에 부여된 ID에 wrapkey, unwrapkey, get 권한을 부여하여 구성이 가능하다.
+⑤ Azure Blob Storage에 파일 업로드 시 SSE 기능을 사용하는 것으로 구성한다.
+## 정답
+
+👉 **③ 응용 어플리케이션에서 드라이버만 변경하면 Always Encrypted와 Dynamic data masking을 동시에 사용할 수 있다** (잘못된 설명)
+## 해설
+
+### ✅ 정답이 맞는 이유
+
+* **Always Encrypted**
+
+  * 클라이언트 애플리케이션에서 **암호화된 컬럼**을 읽고 쓰기 위해 반드시 **특수 드라이버 + DB 연결 문자열 수정**이 필요.
+  * 단순히 드라이버만 교체해서 되는 것이 아님.
+* **Dynamic Data Masking**
+
+  * Always Encrypted와는 별개로, **DB 서버 설정**을 통해 특정 사용자에게 마스킹된 데이터를 보여주는 기능.
+  * Always Encrypted와 DDM은 서로 다른 목적/동작 방식이며 동시에 적용할 수는 있으나, 문제 설명처럼 "드라이버 교체만으로 동시에 사용 가능"은 오해.
+
+따라서 ③은 잘못된 설명.
+### ❌ 다른 보기가 옳은 이유
+
+① **WAF\_v2 SKU + TLS Listener**
+
+* Azure Application Gateway WAF\_v2 SKU는 **TLS/SSL Listener 생성 및 mTLS(상호 인증)** 지원.
+* 올바른 설명.
+
+② **Azure Firewall Premium SKU**
+
+* Premium SKU는 **TLS 검사, IDPS, URL filtering** 등 고급 기능을 제공.
+* 전송 구간 암호화 및 보안 요구 충족 가능.
+
+④ **Azure Files + CMK(Key Vault)**
+
+* Azure Files는 **SSE(Server-Side Encryption) with CMK(Customer Managed Key)** 지원.
+* Key Vault에 CMK 저장 후 Storage 계정이 권한(wrapKey, unwrapKey, get) 가져야 함.
+* 올바른 설명.
+
+⑤ **Azure Blob Storage SSE**
+
+* Blob Storage는 기본 SSE(Server-Side Encryption)를 지원, CMK 연계 가능.
+* 전송 구간은 TLS 1.2+, 저장 구간은 SSE로 보호.
+* 올바른 설명.
+## 핵심 요점
+
+* **Always Encrypted**: 클라이언트 드라이버 + 연결 문자열 수정 필요, 컬럼 단위 암호화.
+* **Dynamic Data Masking**: 서버 측 마스킹, Always Encrypted와는 별개 설정.
+* **전송 구간**: TLS 1.2 이상, WAF\_v2 및 Firewall Premium으로 강화.
+* **저장 구간**: Azure Files, Blob Storage → SSE + CMK(Key Vault) 활용.
+## 📘 추가 학습 가이드
+
+* [Always Encrypted 개요 (Azure SQL)](https://learn.microsoft.com/ko-kr/azure/azure-sql/database/always-encrypted-overview)
+* [Dynamic Data Masking](https://learn.microsoft.com/ko-kr/sql/relational-databases/security/dynamic-data-masking)
+* [Azure Firewall Premium 기능](https://learn.microsoft.com/ko-kr/azure/firewall/premium-features)
+* [Azure Storage 암호화 (SSE + CMK)](https://learn.microsoft.com/ko-kr/azure/storage/common/storage-service-encryption)
+👉 출제 의도: **전송 시/저장 시 암호화 구현 방안 이해도**와, 특히 **Always Encrypted vs DDM 적용 차이**를 구분할 수 있는지 확인.
+
+# 📊 전송 시 암호화 vs 저장 시 암호화 매핑표 (Azure 서비스 기준)
+
+| 구분           | 적용 대상                       | 적용 방식 / 기능                                                           | 비고                           |
+| ------------ | --------------------------- | -------------------------------------------------------------------- | ---------------------------- |
+| **전송 시 암호화** | 외부 인터넷 ↔ WAF 구간             | **mTLS**, **TLS 1.2 이상**                                             | 클라이언트 ↔ WAF 상호 인증 가능         |
+|              | WAF ↔ Firewall 구간           | **TLS 1.2 이상 통신 암호화**                                                | 내부 전송 구간 보호                  |
+|              | MSA Service ↔ 타 시스템 호출      | **TLS 1.2 이상 통신 암호화**                                                | API 호출/서비스 간 연동 보호           |
+| **저장 시 암호화** | 응용 애플리케이션(DB 컬럼 단위)         | **Always Encrypted** (컬럼 암호화)<br>+ **Dynamic Data Masking** (마스킹 표시) | 독립 기능, 동시 활용은 가능하나 별도 구성 필요  |
+|              | SQL Managed Instance (DBMS) | **TDE (Transparent Data Encryption)**                                | 데이터 파일/로그 파일 자동 암호화          |
+|              | Azure Files                 | **SSE(Server-Side Encryption) with CMK** (Key Vault)                 | Storage 계정 ↔ Key Vault 권한 필요 |
+|              | Azure Blob Storage          | **SSE(Server-Side Encryption)** + **CMK (Key Vault)**                | 업로드 시 클라이언트 추가 암호화 불필요       |
+
+---
+
+문항19)
+B 책임은 AKS를 이용하여 시스템 구축을 계획하고 있다. AKS 보안 설계를 위해 검토 중인 사항 중 잘못된 내용을 고르시오. \[4점]
+
+① PSA(Pod Security Admission)를 이용해서 보안정책에 위반되는 POD는 생성을 차단하도록 한다.
+② PSA(Pod Security Admission)는 단일 클러스터 구현을 위한 기본 제공 정책 솔루션이기 때문에 가급적 Azure Policy를 적용하도록 한다.
+③ Secrets Store를 사용하여 Pod에서 안전하게 비밀, 키 및 인증서를 사용하도록 구성한다.
+④ POD 내의 프로세스가 Root로 실행되는 것을 방지하기 위해 “securityContext”에 “runAsUser”를 0이 아닌 값으로 설정한다.
+⑤ AKS 네트워크 정책은 POD 간에는 서로 제약없이 통신이 가능하다. POD 간 통신 제어를 위해서는 Azure Network Policy Manager를 사용한다.
+## 정답
+
+👉 **③ Secrets Store** (잘못된 설명)
+## 해설
+
+### ✅ 정답이 맞는 이유
+
+* 기본 Kubernetes `Secret`은 단순히 **Base64 인코딩**으로 etcd에 저장됨.
+* 암호화되지 않은 상태라 etcd 접근 권한을 가진 사용자는 Secret을 쉽게 디코딩 가능.
+* 또한 **감사(Audit Logging) 기능이 없어** 별도 구현이 필요.
+* 따라서 \*\*“Secrets Store를 사용하면 완전히 안전하다”\*\*는 설명은 잘못된 주장.
+* 실제 안전한 비밀 관리 방안은 **Azure Key Vault + Secrets Store CSI Driver** 를 사용하는 것.
+### ❌ 다른 보기가 적절한 이유
+
+① **PSA(Pod Security Admission)**
+
+* Kubernetes 1.25부터 PodSecurityPolicy가 제거되고 PSA로 대체됨.
+* `baseline`, `restricted` 정책으로 위반 Pod 차단 가능 → 올바른 설명.
+
+② **Azure Policy 권장**
+
+* PSA는 클러스터 레벨 보안만 제공.
+* 기업 환경에서는 Azure Policy와 통합하여 **조직 차원의 정책 적용**을 권장. → 올바른 설명.
+
+④ **securityContext.runAsUser**
+
+* runAsUser를 0(root)이 아닌 UID로 지정하면 컨테이너가 루트 권한으로 실행되는 것을 방지.
+* Pod 보안 설계에서 중요한 설정.
+
+⑤ **AKS 네트워크 정책**
+
+* 기본적으로 Pod 간은 unrestricted 통신 가능.
+* Pod 간 트래픽 제어는 **Azure Network Policy Manager** 또는 **Calico**를 사용해야 함. → 올바른 설명.
+## 핵심 요점
+
+* **기본 Kubernetes Secret = Base64 인코딩 수준** → 안전하지 않음.
+* **Key Vault + CSI Driver**로 Pod에 안전하게 Secret/Key/Cert 제공.
+* **Pod Security**: PSA / securityContext / RBAC / 네트워크 정책 모두 필요.
+## 📘 추가 학습 가이드
+
+* [Kubernetes Secrets 개요](https://kubernetes.io/docs/concepts/configuration/secret/)
+* [Secrets Store CSI Driver with Azure Key Vault](https://learn.microsoft.com/azure/aks/csi-secrets-store-driver)
+* [Pod Security Admission (PSA)](https://kubernetes.io/docs/concepts/security/pod-security-admission/)
+* [Azure Network Policy in AKS](https://learn.microsoft.com/azure/aks/use-network-policies)
+👉 출제 의도: \*\*“AKS 보안 기본 구성 요소(PSA, Security Context, Secret 관리, Network Policy)”\*\*를 이해하고, 특히 **기본 Secret은 안전하지 않다**는 점을 확인하는 문제입니다.
+
+# 📊 AKS 보안 체크리스트
+
+| 보안 영역               | 권장 방안                                                         | 설명                                                                            |
+| ------------------- | ------------------------------------------------------------- | ----------------------------------------------------------------------------- |
+| **Pod 보안**          | **PSA(Pod Security Admission)** 적용                            | `baseline`, `restricted` 정책으로 위반 Pod 생성 차단 (K8s 1.25 이후 PodSecurityPolicy 대체) |
+|                     | **SecurityContext 설정**                                        | `runAsUser: non-root`, `readOnlyRootFilesystem: true` 등으로 컨테이너 권한 최소화         |
+| **비밀 관리 (Secrets)** | **Azure Key Vault + CSI Secrets Store Driver**                | Pod가 Key Vault에서 직접 Secret/Key/Cert 마운트, 안전한 전달                               |
+|                     | 기본 Secret은 피하기                                                | Kubernetes Secret은 Base64 저장 → etcd 권한자 노출 위험, 감사 기능 없음                       |
+| **네트워크 보안**         | **Network Policy 적용** (Azure Network Policy Manager / Calico) | Pod 간 트래픽 기본 허용 → 필요시만 통신 가능하도록 화이트리스트 방식 설정                                  |
+|                     | **NSG (Network Security Group)**                              | 노드/서브넷 단위 Ingress/Egress 제어                                                   |
+| **이미지 보안**          | **Microsoft Defender for Containers + ACR Content Trust**     | 컨테이너 이미지 취약점 스캔 및 서명 검증                                                       |
+| **RBAC & IAM**      | **Azure AD 통합 RBAC**                                          | 사용자/그룹 단위 최소 권한 원칙 적용, kubeconfig 인증 연계                                       |
+| **노드 보안**           | **노드 OS 자동 패치 및 Defender**                                    | AKS 노드 풀 자동 업그레이드, Microsoft Defender로 위협 탐지                                  |
+| **로깅 & 모니터링**       | **Azure Monitor + Defender for Cloud**                        | Pod 보안 이벤트, 네트워크 정책 위반, Secret 접근 등 로그/알림 설정                                  |
+
+---
+
+
